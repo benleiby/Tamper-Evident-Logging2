@@ -1,6 +1,30 @@
 #!/usr/bin/python3
+import hashlib
+import itertools
 import socket
+import string
 import sys
+import re
+
+def normalize_whitespace(text: str) -> str:
+    return re.sub(r'\s+', ' ', text).strip()
+
+def satisfies_pow_constraint(text: str) -> bool:
+    sha256_hash = hashlib.sha256(text.encode('utf-8')).digest()
+    if len(sha256_hash) < 3:
+        return False
+    if sha256_hash[0] == 0 and sha256_hash[1] == 0 and (sha256_hash[2] & 0b11111100) == 0:
+        return True
+    else:
+        return False
+
+def generate_pow_string(text: str) -> str:
+    for length in range(1, 10):  # Adjust the maximum length as needed
+        for pow_candidate in itertools.product(string.ascii_letters + string.digits, repeat=length):
+            pow_string = "".join(pow_candidate)
+            combined_string = pow_string + ":" + text
+            if satisfies_pow_constraint(combined_string):
+                return combined_string
 
 def send_string_to_server(port, message):
     try:
@@ -10,12 +34,14 @@ def send_string_to_server(port, message):
 
         ######################
         ### Convert any whitespace to spaces
-        ### Modify the messsage to include the proof-of-work (Pow+':'+message)
+        ### Modify the message to include the proof-of-work (Pow+':'+message)
         ######################
+        normalized_message = normalize_whitespace(message)
+        pow_string = generate_pow_string(normalized_message)
 
         with client_socket.makefile('r') as server_in, client_socket.makefile('w') as server_out:
             # Send the message to the server, terminated by a newline
-            server_out.write(message + "\n")
+            server_out.write(pow_string + "\n")
             server_out.flush()
 
             # Receive and print the confirmation message from the server
@@ -34,4 +60,3 @@ if __name__ == "__main__":
         port = int(sys.argv[1])
         message = sys.argv[2]
         send_string_to_server(port, message)
-

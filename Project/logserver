@@ -1,5 +1,11 @@
 #!/usr/bin/python3
+import hashlib
 import socket
+
+def get_hash_bits(text: str) -> str:
+    hash_bytes = hashlib.sha256(text.encode('utf-8')).digest()
+    binary_string = ''.join(format(byte, '08b') for byte in hash_bytes)
+    return binary_string
 
 def handle_client(client_socket):
     try:
@@ -9,10 +15,9 @@ def handle_client(client_socket):
             message = client_in.readline().strip()
             print(f"Received: {message}")
 
-
             ########## YOUR CODE HERE ############
             ### Validate the the PoW in the message
-            ### Stril the PoW from the message
+            ### Strip the PoW from the message
             ### Read the last hash from loghead.txt
             ### Create the full line for the log entry
             ### Compute its hash
@@ -20,13 +25,20 @@ def handle_client(client_socket):
             ### Update loghead.txt
             ### Add error checking
             #######################################
+            response = ""
+            if not get_hash_bits(message).startswith('0' * 22):
+                response = "failed\n"
+            else:
+                # Strip the message, handle missing colon as invalid string.
+                try:
+                    index = message.index(":")
+                    stripped = message[index:]
+                except ValueError:
+                    response = "failed\n"
 
-            # Append the received string to log.txt
-            with open("log.txt", "a") as log_file:
-                log_file.write(message + "\n")
-
-            # Send a response message back to the client (terminated by a newline)
-            response = "ok\n"
+                # Append the received string to log.txt
+                with open("log.txt", "a") as log_file:
+                    log_file.write(message + "\n")
             client_out.write(response)
             client_out.flush()
 
