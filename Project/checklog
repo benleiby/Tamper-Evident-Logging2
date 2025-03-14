@@ -23,31 +23,36 @@ def check_log() -> None:
 
     with open("log.txt", "r") as log_file:
 
-        first_line = log_file.readline().strip()
         line_count = 1
-
-        if not first_line:
-            print("failed: log file is empty")
-            sys.exit(1)
-
-        first_hash = first_line[29:].split(" ")[0]
-
-        if first_hash != "start":
-            print("failed: first log does not contain start")
-            sys.exit(1)
-
-        base64_hash = get_b64_hash(first_line)
-
         line = log_file.readline().strip()
         while line:
 
+            # Parse hash of current line.
+            parsed_hash = line[29:].split(" ")[0]
+
+            if line_count == 1: # If first line, check for "start" in hash position. Get hash and read next line (no comparisons).
+                if parsed_hash != "start":
+                    print("failed: invalid first log entry")
+                    sys.exit(1)
+
+            else: # Check if hash stored in current line is equal to the hash of the entire previous line.
+                if parsed_hash != hash_of_line:
+                    print("failed: changes detected at line " + str(line_count - 1))
+                    sys.exit(1)
+
+            hash_of_line = get_b64_hash(line)
             line_count += 1
-
-            if first_line[29:].split(" ")[0] != base64_hash:
-                print("failed: corruption in line " + str(line_count - 1))
-
             line = log_file.readline().strip()
 
+        with open("loghead.txt", "r") as loghead_file:
+            loghead = loghead_file.readline()
+
+        if loghead != hash_of_line:
+            print("failed: changes detected at line " + str(line_count - 1))
+            sys.exit(1)
+        else:
+            print("Valid")
+            sys.exit(0)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
