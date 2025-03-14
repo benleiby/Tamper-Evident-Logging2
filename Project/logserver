@@ -1,11 +1,28 @@
 #!/usr/bin/python3
+import base64
 import hashlib
+import os
 import socket
+from datetime import datetime, timezone
 
 def get_hash_bits(text: str) -> str:
     hash_bytes = hashlib.sha256(text.encode('utf-8')).digest()
     binary_string = ''.join(format(byte, '08b') for byte in hash_bytes)
     return binary_string
+
+def create_log(message: str, b64_hash: str) -> str:
+    now_utc = datetime.now(timezone.utc)
+    timestamp_str = now_utc.isoformat(timespec="seconds") + "Z"  # Add "Z" for UTC
+    return timestamp_str + " - " + b64_hash + " " + message
+
+def get_b64_hash(text: str) -> str:
+    sha256_hash = hashlib.sha256(text.encode('utf-8')).digest()
+    base64_hash = base64.b64encode(sha256_hash).decode('utf-8')
+    last_24_bytes = base64_hash[-24:]
+    return last_24_bytes
+
+def file_exists(path: str) -> bool:
+    return os.path.exists(path) and os.path.isfile(path)
 
 def handle_client(client_socket):
     try:
@@ -25,26 +42,65 @@ def handle_client(client_socket):
             ### Update loghead.txt
             ### Add error checking
             #######################################
-            response = ""
-            if not get_hash_bits(message).startswith('0' * 22):
-                response = "failed\n"
-            else:
-                # Strip the message, handle missing colon as invalid string.
-                try:
-                    index = message.index(":")
-                    stripped = message[index:]
-                except ValueError:
-                    response = "failed\n"
 
-                # Append the received string to log.txt
+            if not get_hash_bits(message).startswith('0' * 22):
+                client_out.write("failed\n")
+                client_out.flush()
+                return
+
+            # Strip the message, handle missing colon as invalid string.
+            try:
+                index = message.index(":") + 1
+                stripped = message[index:]
+            except ValueError:
+                client_out.write("failed\n")
+                client_out.flush()
+                return
+
+            # FILE MANAGEMENT.
+            # If log file doesn't exist, overwrite everything.
+            if not file_exists("log.txt"):
+
+                initial_log = create_log(stripped, "start")
+                initial_hash = get_b64_hash(initial_log)
+
+                with open("log.txt", "w") as log_file:
+                    log_file.write(initial_log + "\n")
+
+                with open("loghead.txt", "w") as log_head_file:
+                    log_head_file.write(initial_hash)
+
+                client_out.write("ok\n")
+                client_out.flush()
+                return
+
+            # If log file exists but loghead doesn't exist, return an error.
+            elif not file_exists("loghead.txt"):
+                client_out.write("failed: missing loghead file\n")
+                client_out.flush()
+                return
+
+            # If both exist, append to current files.
+            else:
+
+                with open("loghead.txt", "r") as loghead_file:
+                    head = loghead_file.readline()
+
+                next_log = create_log(stripped, head)
+
                 with open("log.txt", "a") as log_file:
-                    log_file.write(message + "\n")
-            client_out.write(response)
-            client_out.flush()
+                    log_file.write(next_log + "\n")
+
+                with open("loghead.txt", "w") as loghead_file:
+                    loghead_file.write(get_b64_hash(next_log))
+
+                client_out.write("ok\n")
+                client_out.flush()
 
     except Exception as e:
         print(f"logserver: {e}")
     finally:
+        print("closing socket")
         client_socket.close()
 
 def start_server():
@@ -65,4 +121,3 @@ def start_server():
 
 if __name__ == "__main__":
     start_server()
-

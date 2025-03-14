@@ -36,11 +36,11 @@ def send_string_to_server(port, message):
         ### Convert any whitespace to spaces
         ### Modify the message to include the proof-of-work (Pow+':'+message)
         ######################
+
         normalized_message = normalize_whitespace(message)
         pow_string = generate_pow_string(normalized_message)
 
         with client_socket.makefile('r') as server_in, client_socket.makefile('w') as server_out:
-            # Send the message to the server, terminated by a newline
             server_out.write(pow_string + "\n")
             server_out.flush()
 

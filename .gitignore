@@ -172,3 +172,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+/Project/log.txt
+/Project/loghead.txt

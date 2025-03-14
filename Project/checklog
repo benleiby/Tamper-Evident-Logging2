@@ -1,0 +1,56 @@
+#!/usr/bin/python3
+import base64
+import hashlib
+import os
+import sys
+
+def file_exists(path: str) -> bool:
+    return os.path.exists(path) and os.path.isfile(path)
+
+def get_b64_hash(text: str) -> str:
+    sha256_hash = hashlib.sha256(text.encode('utf-8')).digest()
+    base64_hash = base64.b64encode(sha256_hash).decode('utf-8')
+    last_24_bytes = base64_hash[-24:]
+    return last_24_bytes
+
+def check_log() -> None:
+    if not file_exists("log.txt"):
+        print("failed: log.txt does not exist")
+        sys.exit(1)
+    if not file_exists("loghead.txt"):
+        print("failed: loghead.txt does not exist")
+        sys.exit(1)
+
+    with open("log.txt", "r") as log_file:
+
+        first_line = log_file.readline().strip()
+        line_count = 1
+
+        if not first_line:
+            print("failed: log file is empty")
+            sys.exit(1)
+
+        first_hash = first_line[29:].split(" ")[0]
+
+        if first_hash != "start":
+            print("failed: first log does not contain start")
+            sys.exit(1)
+
+        base64_hash = get_b64_hash(first_line)
+
+        line = log_file.readline().strip()
+        while line:
+
+            line_count += 1
+
+            if first_line[29:].split(" ")[0] != base64_hash:
+                print("failed: corruption in line " + str(line_count - 1))
+
+            line = log_file.readline().strip()
+
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1:
+        print("Usage: no arguments")
+    else:
+        check_log()
