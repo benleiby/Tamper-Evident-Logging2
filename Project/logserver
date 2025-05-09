@@ -32,17 +32,6 @@ def handle_client(client_socket):
             message = client_in.readline().strip()
             print(f"Received: {message}")
 
-            ########## YOUR CODE HERE ############
-            ### Validate the the PoW in the message
-            ### Strip the PoW from the message
-            ### Read the last hash from loghead.txt
-            ### Create the full line for the log entry
-            ### Compute its hash
-            ### Append the line to the log
-            ### Update loghead.txt
-            ### Add error checking
-            #######################################
-
             if not get_hash_bits(message).startswith('0' * 22):
                 client_out.write("failed\n")
                 client_out.flush()
